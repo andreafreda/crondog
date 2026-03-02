@@ -12,7 +12,10 @@ export async function POST(_req: Request, { params }: Params) {
         const api = getBatchV1Api();
         const cj = await api.readNamespacedCronJob({ name, namespace: NAMESPACE });
 
-        const jobName = `${name}-manual-${Date.now()}`;
+        // Suffisso breve: K8s limita i nomi a 63 caratteri
+        const suffix = Date.now().toString().slice(-8);
+        const jobName = `${name}-manual-${suffix}`.slice(0, 63);
+
         const result = await api.createNamespacedJob({
             namespace: NAMESPACE,
             body: {
@@ -21,6 +24,8 @@ export async function POST(_req: Request, { params }: Params) {
                 metadata: {
                     name: jobName,
                     namespace: NAMESPACE,
+                    // Label che permette di filtrare questo job nella detail page
+                    labels: { "cronjob-name": name },
                     annotations: { "cronjob-manager/triggered-by": "manual" },
                 },
                 spec: cj.spec?.jobTemplate.spec,
