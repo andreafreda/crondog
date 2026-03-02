@@ -1,5 +1,7 @@
 "use client";
 
+import { Fragment } from "react";
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +19,7 @@ import { useState } from "react";
 
 type Job = {
     name: string;
+    podName: string | null;
     status: "succeeded" | "failed" | "running";
     startTime: string | null;
     completionTime: string | null;
@@ -220,15 +223,14 @@ export default function CronJobDetailPage() {
                                 </TableRow>
                             )}
                             {data.jobs.map((job) => (
-                                <>
+                                <Fragment key={job.name}>
                                     <TableRow
-                                        key={job.name}
                                         className="hover:bg-muted/20 cursor-pointer transition-colors"
                                         onClick={() => setSelectedPod(selectedPod === job.name ? null : job.name)}
                                     >
                                         <TableCell className="font-mono text-xs">{job.name}</TableCell>
                                         <TableCell>{statusBadge(job.status)}</TableCell>
-                                        <TableCell className="text-sm text-muted-foreground">
+                                        <TableCell className="text-sm text-muted-foreground" suppressHydrationWarning>
                                             {job.startTime ? new Date(job.startTime).toLocaleString("it-IT") : "—"}
                                         </TableCell>
                                         <TableCell className="text-sm text-muted-foreground">
@@ -241,13 +243,16 @@ export default function CronJobDetailPage() {
                                         </TableCell>
                                     </TableRow>
                                     {selectedPod === job.name && (
-                                        <TableRow key={`${job.name}-logs`}>
+                                        <TableRow>
                                             <TableCell colSpan={5} className="bg-muted/10">
-                                                <LogViewer podName={job.name} />
+                                                {job.podName
+                                                    ? <LogViewer podName={job.podName} />
+                                                    : <p className="text-xs text-muted-foreground py-2">Pod non più disponibile (già rimosso dal cluster)</p>
+                                                }
                                             </TableCell>
                                         </TableRow>
                                     )}
-                                </>
+                                </Fragment>
                             ))}
                         </TableBody>
                     </Table>
