@@ -183,3 +183,90 @@ Stack: Go + chi/Gin + client-go
 1. **Next.js 15** elimina la necessità di un backend separato: le API routes gestiscono le chiamate a `kubectl`/API server K8s, il tutto in un unico progetto TypeScript.
 2. **TailwindCSS 4 + shadcn/ui** offre il miglior rapporto tra velocità di sviluppo e qualità visiva, con componenti già accessibili e personalizzabili.
 3. **TanStack Query** gestisce caching, polling e invalidazione in modo dichiarativo, perfetto per uno stato K8s che cambia frequentemente.
+
+---
+
+## 6. Confronto diretto: Next.js vs Angular vs React (Vite)
+
+> Confronto focalizzato sul nostro use case specifico: **dashboard interna per gestione CronJob K8s**.
+
+### Overview
+
+| Criterio | Next.js 15 | Angular 19 | React 19 + Vite |
+|---|---|---|---|
+| **Tipo** | Full-stack framework | SPA framework opinionated | UI library + build tool |
+| **Linguaggio** | TypeScript (first-class) | TypeScript (obbligatorio) | TypeScript (opzionale ma consigliato) |
+| **Mantentuto da** | Vercel + community | Google | Meta + community |
+| **Release model** | Semestrale stabile | Semestrale (major ogni 6 mesi) | Continuo, stabile |
+| **Versione attuale** | 15.x (2025) | 19.x (2025) | 19.x (2025) |
+
+---
+
+### Performance
+
+| Aspetto | Next.js 15 | Angular 19 | React 19 + Vite |
+|---|---|---|---|
+| **Bundle size (base)** | ~90 KB gzip | ~150–200 KB gzip | ~45 KB gzip |
+| **Build tool** | Turbopack (Rust, velocissimo) | esbuild / Vite (da v17+) | Vite (ESM nativo) |
+| **Rendering** | SSR + SSG + RSC + CSR | CSR (default), SSR con Angular Universal | CSR puro |
+| **Server Components** | ✅ (React RSC, zero JS al client) | ❌ | ❌ |
+| **Hydration** | Partial hydration con RSC | Full hydration | Full hydration |
+| **Runtime performance** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+
+> Per una dashboard K8s con aggiornamenti frequenti e tabelle di dati, RSC di Next.js riduce sensibilmente il JS inviato al browser.
+
+---
+
+### Architettura e struttura
+
+| Aspetto | Next.js 15 | Angular 19 | React 19 + Vite |
+|---|---|---|---|
+| **Routing** | File-based (App Router) | Module-based (RouterModule) | Manuale (React Router / TanStack Router) |
+| **State management** | Zustand / Jotai / Context | NgRx / Signals (built-in) | Zustand / Jotai / Redux |
+| **DI (Dependency Injection)** | ❌ | ✅ built-in e potente | ❌ |
+| **Opinionatedness** | Medio | Alto (tutto strutturato) | Basso (libertà totale) |
+| **Backend integrato** | ✅ Route Handlers / Server Actions | ❌ (serve backend separato) | ❌ (serve backend separato) |
+| **Struttura progetto** | Convenzionale ma flessibile | Molto rigida (NgModules, Services, Components) | Libera |
+
+---
+
+### Developer Experience
+
+| Aspetto | Next.js 15 | Angular 19 | React 19 + Vite |
+|---|---|---|---|
+| **Curva di apprendimento** | Media | Alta (concetti: DI, decoratori, zone.js, signals) | Bassa–Media |
+| **HMR / Dev speed** | ⭐⭐⭐⭐⭐ (Turbopack) | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ (Vite) |
+| **TypeScript** | First-class | Obbligatorio, deeply integrated | Opzionale, ottimo supporto |
+| **Testing** | Jest + Playwright | Jasmine/Karma built-in, Cypress | Jest/Vitest + Playwright |
+| **CLI / Tooling** | `next` CLI, `create-next-app` | Angular CLI (molto potente) | Vite CLI, `create-vite` |
+| **Angular Signals** | N/A | ✅ Reattività fine-grained nativa da v17 | N/A (React ha `use()` e transitions) |
+
+---
+
+### Fit per il nostro progetto
+
+| Requisito | Next.js 15 | Angular 19 | React 19 + Vite |
+|---|---|---|---|
+| Backend proxy K8s integrato | ✅ Route Handlers | ❌ serve Express/Node separato | ❌ serve Express/Node separato |
+| Real-time log streaming (SSE) | ✅ nativo | ⚠️ possibile ma non idiomatico | ✅ con librerie |
+| Dashboard con tabelle/charts | ✅ shadcn/ui + Recharts | ✅ PrimeNG, Angular Material | ✅ shadcn/ui + Recharts |
+| Deploy su K8s (Dockerfile) | ✅ single container | ✅ ma 2 container (FE + BE) | ✅ ma 2 container (FE + BE) |
+| Team piccolo / velocità sviluppo | ✅ | ❌ more setup time | ✅ |
+| Enterprise / team grande | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ |
+
+---
+
+### Sintesi del confronto
+
+```
+Next.js 15   ████████████████████  Vincitore per questo use case
+React+Vite   ████████████████░░░░  Buona alternativa (serve backend separato)
+Angular 19   ████████████░░░░░░░░  Ottimo per enterprise, ma overkill qui
+```
+
+**Angular** è una scelta eccellente per grandi team enterprise, dove la struttura rigida e la DI built-in diventano vantaggi. Per una dashboard interna di medie dimensioni con un team piccolo, introduce complessità e overhead non necessari.
+
+**React + Vite** è la scelta più minimalista e flessibile: velocissimo da bootstrappare, ma richiede un backend separato (Node.js/Hono) per il proxy K8s.
+
+**Next.js 15** vince nel nostro caso: backend integrato, performance RSC, Turbopack, e un ecosistema React completo. Un solo progetto, un solo container Docker.
+
