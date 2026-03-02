@@ -1,13 +1,13 @@
 import * as k8s from "@kubernetes/client-node";
 
-// Singleton: riusiamo la stessa istanza per tutta l'app
+// Singleton: reuse the same instance across the entire app
 let batchV1Api: k8s.BatchV1Api | null = null;
 let coreV1Api: k8s.CoreV1Api | null = null;
 
 function getKubeConfig(): k8s.KubeConfig {
     const kc = new k8s.KubeConfig();
-    // In locale carica il kubeconfig da ~/.kube/config (minikube)
-    // In cluster usa il service account automaticamente
+    // Locally loads kubeconfig from ~/.kube/config (minikube)
+    // In-cluster uses the service account automatically
     if (process.env.KUBERNETES_SERVICE_HOST) {
         kc.loadFromCluster();
     } else {

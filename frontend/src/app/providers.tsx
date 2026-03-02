@@ -10,7 +10,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
                 defaultOptions: {
                     queries: {
                         staleTime: 15 * 1000, // 15s
-                        refetchInterval: 30 * 1000, // polling ogni 30s
+                        refetchInterval: 30 * 1000, // polling every 30s
                     },
                 },
             })

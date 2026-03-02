@@ -6,16 +6,16 @@ metadata:
   labels:
     app: hello-world
 spec:
-  # Ogni 5 minuti
+  # Every 5 minutes
   schedule: "*/5 * * * *"
-  # Conserva gli ultimi 5 job completati e 3 falliti per verifica log
+  # Keep the last 5 completed jobs and 3 failed for log verification
   successfulJobsHistoryLimit: 5
   failedJobsHistoryLimit: 3
-  # Se un job è ancora in esecuzione al prossimo ciclo, lo skippa
+  # If a job is still running at the next cycle, skip it
   concurrencyPolicy: Forbid
   jobTemplate:
     spec:
-      # Numero massimo di tentativi in caso di fallimento del Pod
+      # Maximum number of retry attempts on Pod failure
       backoffLimit: 0
       template:
         metadata:
@@ -25,7 +25,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: hello-world
-              # Immagine buildata localmente nel registry di minikube
+              # Image built locally in minikube's registry
               image: hello-world-job:latest
-              # Non pullare da registry remoto, usa solo quella locale
+              # Do not pull from remote registry, use local only
               imagePullPolicy: Never

@@ -1,30 +1,31 @@
 import { NextResponse } from "next/server";
 import { getBatchV1Api } from "@/lib/k8s";
 
-const NAMESPACE = process.env.K8S_NAMESPACE ?? "default";
-
 type Params = { params: Promise<{ name: string }> };
 
-// POST /api/cronjobs/[name]/trigger — crea un Job manuale dal CronJob
-export async function POST(_req: Request, { params }: Params) {
+// POST /api/cronjobs/[name]/trigger — create a manual Job from the CronJob
+export async function POST(req: Request, { params }: Params) {
     const { name } = await params;
     try {
-        const api = getBatchV1Api();
-        const cj = await api.readNamespacedCronJob({ name, namespace: NAMESPACE });
+        const { searchParams } = new URL(req.url);
+        const namespace = searchParams.get("namespace") || "default";
 
-        // Suffisso breve: K8s limita i nomi a 63 caratteri
+        const api = getBatchV1Api();
+        const cj = await api.readNamespacedCronJob({ name, namespace });
+
+        // Short suffix: K8s limits names to 63 characters
         const suffix = Date.now().toString().slice(-8);
         const jobName = `${name}-manual-${suffix}`.slice(0, 63);
 
         const result = await api.createNamespacedJob({
-            namespace: NAMESPACE,
+            namespace,
             body: {
                 apiVersion: "batch/v1",
                 kind: "Job",
                 metadata: {
                     name: jobName,
-                    namespace: NAMESPACE,
-                    // Label che permette di filtrare questo job nella detail page
+                    namespace,
+                    // Label that allows filtering this job in the detail page
                     labels: { "cronjob-name": name },
                     annotations: { "cronjob-manager/triggered-by": "manual" },
                 },
@@ -34,6 +35,6 @@ export async function POST(_req: Request, { params }: Params) {
         return NextResponse.json({ jobName: result.metadata?.name }, { status: 201 });
     } catch (err) {
         console.error(`[POST /api/cronjobs/${name}/trigger]`, err);
-        return NextResponse.json({ error: "Impossibile avviare il Job" }, { status: 500 });
+        return NextResponse.json({ error: "Unable to start the Job" }, { status: 500 });
     }
 }

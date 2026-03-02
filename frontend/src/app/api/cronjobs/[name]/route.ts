@@ -1,35 +1,36 @@
 import { NextResponse } from "next/server";
 import { getBatchV1Api, getCoreV1Api } from "@/lib/k8s";
 
-const NAMESPACE = process.env.K8S_NAMESPACE ?? "default";
-
 type Params = { params: Promise<{ name: string }> };
 
-// GET /api/cronjobs/[name] — dettaglio CronJob + history job con podName
-export async function GET(_req: Request, { params }: Params) {
+// GET /api/cronjobs/[name] — CronJob detail + job history with podName
+export async function GET(req: Request, { params }: Params) {
     const { name } = await params;
     try {
+        const { searchParams } = new URL(req.url);
+        const namespace = searchParams.get("namespace") || "default";
+
         const api = getBatchV1Api();
         const coreApi = getCoreV1Api();
 
-        const cj = await api.readNamespacedCronJob({ name, namespace: NAMESPACE });
+        const cj = await api.readNamespacedCronJob({ name, namespace });
 
-        // Recupera Job via ownerReference (automatici) e via label (manuali)
+        // Retrieve Jobs via ownerReference (automatic) and via label (manual)
         const [allJobs, labelJobs] = await Promise.all([
-            api.listNamespacedJob({ namespace: NAMESPACE }),
+            api.listNamespacedJob({ namespace }),
             api.listNamespacedJob({
-                namespace: NAMESPACE,
+                namespace,
                 labelSelector: `cronjob-name=${name}`,
             }),
         ]);
 
-        // Unisce i due set rimuovendo duplicati per nome
+        // Merge the two sets removing duplicates by name
         const seen = new Set<string>();
         const merged = [...allJobs.items, ...labelJobs.items].filter((j) => {
             const jobName = j.metadata?.name ?? "";
             if (seen.has(jobName)) return false;
             seen.add(jobName);
-            // Tieni solo Job che appartengono a questo CronJob
+            // Keep only Jobs that belong to this CronJob
             const byOwner = j.metadata?.ownerReferences?.some((r) => r.name === name);
             const byLabel = j.metadata?.labels?.["cronjob-name"] === name;
             return byOwner || byLabel;
@@ -40,12 +41,12 @@ export async function GET(_req: Request, { params }: Params) {
                 let podName: string | null = null;
                 try {
                     const pods = await coreApi.listNamespacedPod({
-                        namespace: NAMESPACE,
+                        namespace,
                         labelSelector: `job-name=${j.metadata?.name}`,
                     });
                     podName = pods.items[0]?.metadata?.name ?? null;
                 } catch {
-                    // Pod già rimosso
+                    // Pod already removed
                 }
 
                 return {
@@ -71,60 +72,85 @@ export async function GET(_req: Request, { params }: Params) {
             })
         );
 
-        // Ordina: più recente in cima
+        // Sort: most recent first
         relatedJobs.sort((a, b) =>
             (b.startTime ? new Date(b.startTime).getTime() : 0) -
             (a.startTime ? new Date(a.startTime).getTime() : 0)
         );
 
-        // Conta tutti i job in running (automatici + manuali)
+        // Count all running jobs (automatic + manual)
         const activeCount = relatedJobs.filter((j) => j.status === "running").length;
+
+        // Determine true last run attributes based on the latest mapped job
+        const latestJob = relatedJobs.length > 0 ? relatedJobs[0] : null;
+        const nativeScheduleTime = cj.status?.lastScheduleTime;
+        const lastJobTime = latestJob?.startTime;
 
         return NextResponse.json({
             name: cj.metadata?.name,
             schedule: cj.spec?.schedule,
             suspend: cj.spec?.suspend ?? false,
-            lastScheduleTime: cj.status?.lastScheduleTime ?? null,
+            lastScheduleTime: nativeScheduleTime ?? null,
+            lastRunTime: lastJobTime || nativeScheduleTime || null,
+            lastRunType: latestJob?.manual ? "manual" : "scheduled",
             active: activeCount,
             jobs: relatedJobs,
         });
     } catch (err) {
         console.error(`[GET /api/cronjobs/${name}]`, err);
-        return NextResponse.json({ error: "CronJob non trovato" }, { status: 404 });
+        return NextResponse.json({ error: "CronJob not found" }, { status: 404 });
     }
 }
 
-// PATCH /api/cronjobs/[name] — modifica schedule o suspend
+// PATCH /api/cronjobs/[name] — modify schedule or suspend
 export async function PATCH(req: Request, { params }: Params) {
     const { name } = await params;
     try {
+        const { searchParams } = new URL(req.url);
+        const namespace = searchParams.get("namespace") || "default";
         const body = await req.json();
         const api = getBatchV1Api();
-        const patch: Record<string, unknown> = { spec: {} };
-        if (body.suspend !== undefined) (patch.spec as Record<string, unknown>).suspend = body.suspend;
-        if (body.schedule !== undefined) (patch.spec as Record<string, unknown>).schedule = body.schedule;
 
-        const result = await api.patchNamespacedCronJob({
+        // Read current CronJob, modify, then replace (avoids patch content-type issues)
+        const current = await api.readNamespacedCronJob({ name, namespace });
+        if (body.suspend !== undefined) current.spec!.suspend = body.suspend;
+        if (body.schedule !== undefined) current.spec!.schedule = body.schedule;
+
+        const result = await api.replaceNamespacedCronJob({
             name,
-            namespace: NAMESPACE,
-            body: patch,
+            namespace,
+            body: current,
         });
         return NextResponse.json(result);
-    } catch (err) {
+    } catch (err: any) {
         console.error(`[PATCH /api/cronjobs/${name}]`, err);
-        return NextResponse.json({ error: "Impossibile aggiornare il CronJob" }, { status: 500 });
+        let errorMessage = "Unable to update CronJob";
+        try {
+            if (err.body) {
+                const parsedBody = typeof err.body === "string" ? JSON.parse(err.body) : err.body;
+                errorMessage = parsedBody.message || errorMessage;
+            } else if (err.message) {
+                errorMessage = err.message;
+            }
+        } catch (e) {
+            errorMessage = err.body ? String(err.body) : err.message || errorMessage;
+        }
+        return NextResponse.json({ error: errorMessage }, { status: err.statusCode || 500 });
     }
 }
 
 // DELETE /api/cronjobs/[name]
-export async function DELETE(_req: Request, { params }: Params) {
+export async function DELETE(req: Request, { params }: Params) {
     const { name } = await params;
     try {
+        const { searchParams } = new URL(req.url);
+        const namespace = searchParams.get("namespace") || "default";
+
         const api = getBatchV1Api();
-        await api.deleteNamespacedCronJob({ name, namespace: NAMESPACE });
+        await api.deleteNamespacedCronJob({ name, namespace });
         return NextResponse.json({ deleted: true });
     } catch (err) {
         console.error(`[DELETE /api/cronjobs/${name}]`, err);
-        return NextResponse.json({ error: "Impossibile eliminare il CronJob" }, { status: 500 });
+        return NextResponse.json({ error: "Unable to delete CronJob" }, { status: 500 });
     }
 }
