@@ -5,6 +5,16 @@
 
 Progettato per sviluppatori e amministratori di sistema, KronDog fornisce un'interfaccia pulita sopra le API native di Kubernetes, permettendoti di visualizzare istantaneamente i job attivi, controllare la cronologia delle esecuzioni (sia pianificate che avviate manualmente), analizzare errori di validazione esatti e gestire le pianificazioni cron in modo visuale, invece di lottare con i manifest YAML nel terminale.
 
+## 📸 Anteprima
+
+### 1. Dashboard Principale
+Una panoramica di alto livello di tutti i tuoi CronJob, mostrando lo stato attivo, il timestamp reale dell'ultima esecuzione e l'espressione di pianificazione:
+![Dashboard Principale](docs/img/home.png)
+
+### 2. Dettagli e Cronologia Job
+Cliccando su qualsiasi CronJob è possibile vedere la cronologia profonda, la durata delle esecuzioni, i pod attivi e l'origine esatta degli avvii (Pianificati vs Manuali):
+![Dettagli e Cronologia Job](docs/img/job_details.png)
+
 ## 🚀 Funzionalità
 - **Panoramica Dashboard**: Monitora tutti i CronJob nel namespace selezionato.
 - **Avvii Manuali**: Avvia i Job manualmente (Run Now) e vedili immediatamente contrassegnati dal badge `✋ Manual` nelle colonne dell'Ultima Esecuzione.
