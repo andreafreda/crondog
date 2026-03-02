@@ -71,18 +71,21 @@ export async function GET(_req: Request, { params }: Params) {
             })
         );
 
-        // Ordina dal più recente
+        // Ordina: più recente in cima
         relatedJobs.sort((a, b) =>
             (b.startTime ? new Date(b.startTime).getTime() : 0) -
             (a.startTime ? new Date(a.startTime).getTime() : 0)
         );
+
+        // Conta tutti i job in running (automatici + manuali)
+        const activeCount = relatedJobs.filter((j) => j.status === "running").length;
 
         return NextResponse.json({
             name: cj.metadata?.name,
             schedule: cj.spec?.schedule,
             suspend: cj.spec?.suspend ?? false,
             lastScheduleTime: cj.status?.lastScheduleTime ?? null,
-            active: cj.status?.active?.length ?? 0,
+            active: activeCount,
             jobs: relatedJobs,
         });
     } catch (err) {
