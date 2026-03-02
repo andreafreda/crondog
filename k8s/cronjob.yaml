@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: hello-world
+  namespace: default
+  labels:
+    app: hello-world
+spec:
+  # Every 5 minutes
+  schedule: "*/5 * * * *"
+  # Keep the last 5 completed jobs and 3 failed for log verification
+  successfulJobsHistoryLimit: 5
+  failedJobsHistoryLimit: 3
+  # If a job is still running at the next cycle, skip it
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      # Maximum number of retry attempts on Pod failure
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            app: hello-world
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: hello-world
+              # Image built locally in minikube's registry
+              image: hello-world-job:latest
+              # Do not pull from remote registry, use local only
+              imagePullPolicy: Never
